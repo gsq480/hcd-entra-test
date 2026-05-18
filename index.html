@@ -189,7 +189,7 @@
 
   async function init() {
     try {
-      msal = new msal.PublicClientApplication(msalConfig);
+      pca = new msal.PublicClientApplication(msalConfig);
       await pca.initialize();
       // Handle redirect return (if any)
       try { await pca.handleRedirectPromise(); } catch (e) { /* benign */ }
