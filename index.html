@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HCD Entra + SharePoint MVP</title>
+  <style>
+    :root {
+      --bg: #FFF6E3;
+      --fg: #1A1812;
+      --muted: #6B655C;
+      --line: #E8E4DC;
+      --accent: #E5723D;
+      --card: #FFFFFF;
+      --ok: #107C10;
+      --warn: #A4262C;
+    }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
+    body {
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      font-size: 14px; line-height: 1.5;
+    }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 32px 24px 64px; }
+    header { margin-bottom: 24px; }
+    .eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      color: var(--muted); text-transform: uppercase; margin-bottom: 6px;
+    }
+    h1 { font-size: 26px; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.01em; }
+    .sub { color: var(--muted); font-size: 13.5px; max-width: 640px; }
+
+    .panel {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 10px; padding: 18px 20px; margin: 16px 0;
+    }
+    .status-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .status-row .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+    .status-row .value { font-size: 14px; font-weight: 700; }
+
+    button {
+      font: inherit; cursor: pointer;
+      background: var(--accent); color: #fff; border: 0;
+      padding: 9px 16px; border-radius: 6px; font-weight: 700; font-size: 13px;
+    }
+    button:hover { background: #C95E2C; }
+    button.secondary {
+      background: #fff; color: #1A1812; border: 1px solid var(--line);
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .err {
+      background: #FEF2F2; border: 1px solid #FCA5A5; color: #991B1B;
+      padding: 12px 14px; border-radius: 8px; margin: 14px 0;
+      font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .ok-pill {
+      display: inline-block; background: #DCFCE7; color: var(--ok);
+      padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;
+    }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 14px 0; }
+    .stat { padding: 12px; background: #FAF8F4; border: 1px solid var(--line); border-radius: 8px; }
+    .stat .v { font-size: 22px; font-weight: 800; }
+    .stat .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-top: 2px; }
+
+    ul.items { list-style: none; padding: 0; margin: 8px 0 0; }
+    ul.items li {
+      padding: 10px 0; border-bottom: 1px solid #F0EDE6;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    ul.items li:last-child { border: 0; }
+    .sev {
+      flex: 0 0 28px; height: 28px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 800; font-size: 12px;
+    }
+    .pp-id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); }
+    .pp-title { font-weight: 700; font-size: 13.5px; }
+    .pp-meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+    code {
+      font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+      background: #F5F5F5; padding: 1px 5px; border-radius: 3px;
+    }
+
+    details { margin-top: 12px; }
+    details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+    details pre {
+      background: #1A1812; color: #C8C3B9; padding: 10px 12px;
+      border-radius: 6px; font-size: 11px; overflow-x: auto;
+      max-height: 240px; margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">HCD Entra + SharePoint MVP</div>
+    <h1>Pull from SharePoint, on behalf of the signed-in user</h1>
+    <p class="sub">
+      No data on this page until you sign in with a
+      <code>@fjellconsulting507.onmicrosoft.com</code> account.
+      Once you do, the browser asks Microsoft Graph for the
+      <code>Painpoints</code> list in your sandbox SharePoint site
+      and renders whatever it gets back.
+    </p>
+  </header>
+
+  <div class="panel status-row">
+    <div>
+      <div class="label">Status</div>
+      <div class="value" id="status">Initialising MSAL...</div>
+    </div>
+    <div style="flex:1"></div>
+    <button id="signIn" style="display:none">Sign in with Microsoft</button>
+    <button id="signOut" class="secondary" style="display:none">Sign out</button>
+  </div>
+
+  <div id="err" class="err" style="display:none"></div>
+
+  <div id="results" style="display:none">
+    <div class="stats">
+      <div class="stat"><div class="v" id="totalCount">0</div><div class="l">Items returned</div></div>
+      <div class="stat"><div class="v" id="highCount">0</div><div class="l">High severity (4-5)</div></div>
+      <div class="stat"><div class="v" id="cohortCount">0</div><div class="l">Distinct cohorts</div></div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:700">First 25 painpoints</div>
+        <span class="ok-pill">Live from SharePoint</span>
+      </div>
+      <ul class="items" id="items"></ul>
+    </div>
+
+    <details>
+      <summary>Raw Graph response (first item)</summary>
+      <pre id="raw"></pre>
+    </details>
+  </div>
+
+  <div class="panel" style="margin-top:32px;font-size:12.5px;color:var(--muted)">
+    <strong style="color:var(--fg)">If sign-in fails:</strong>
+    <ol style="margin:6px 0 0 18px;padding:0">
+      <li>In Entra portal, open the <code>HCD Sandbox Pull</code> app, go to Authentication, add a Single-page application platform with this exact redirect URI:<br>
+        <code id="redirect-uri" style="font-size:11px"></code>
+      </li>
+      <li>Go to API permissions, add Microsoft Graph - Delegated - <code>Sites.Read.All</code>, then click "Grant admin consent for fjellconsulting507".</li>
+    </ol>
+  </div>
+
+</div>
+
+<!-- MSAL Browser via CDN. Pinned to v3 -->
+<script src="https://alcdn.msauth.net/browser/3.18.0/js/msal-browser.min.js"></script>
+<script>
+  // ── Config ─────────────────────────────────────────────────────────────
+  // These are public identifiers, not secrets. Safe to ship in browser.
+  const TENANT_ID = "33c8430f-283c-4b61-84df-881d0fd39b48";
+  const CLIENT_ID = "e6c1e7f1-6907-4fa4-ac74-ff5c7e3ae387";
+  const SP_HOST   = "fjellconsulting507.sharepoint.com";
+  const SP_PATH   = "/sites/HCDSanbox"; // NB: typo "Sanbox" preserved from site URL
+  const SP_LIST   = "Painpoints";
+  const GRAPH     = "https://graph.microsoft.com/v1.0";
+
+  // ── UI helpers ─────────────────────────────────────────────────────────
+  const $ = (id) => document.getElementById(id);
+  const setStatus = (s) => { $("status").textContent = s; };
+  const showErr = (msg) => { const e = $("err"); e.textContent = String(msg); e.style.display = "block"; };
+  const clearErr = () => { $("err").style.display = "none"; $("err").textContent = ""; };
+  const sevColour = (n) => n >= 5 ? "#7F1D1D" : n >= 4 ? "#A4262C" : n >= 3 ? "#8A6914" : "#107C10";
+
+  $("redirect-uri").textContent = window.location.origin + window.location.pathname;
+
+  // ── MSAL init ──────────────────────────────────────────────────────────
+  const msalConfig = {
+    auth: {
+      clientId: CLIENT_ID,
+      authority: `https://login.microsoftonline.com/${TENANT_ID}`,
+      redirectUri: window.location.origin + window.location.pathname,
+    },
+    cache: { cacheLocation: "localStorage" },
+  };
+  const loginRequest = { scopes: ["Sites.Read.All"] };
+  const graphRequest = { scopes: ["https://graph.microsoft.com/Sites.Read.All"] };
+
+  let msal;
+
+  async function init() {
+    try {
+      msal = new msal_browser.PublicClientApplication(msalConfig);
+      await msal.initialize();
+      // Handle redirect return (if any)
+      try { await msal.handleRedirectPromise(); } catch (e) { /* benign */ }
+      const accounts = msal.getAllAccounts();
+      if (accounts.length) {
+        msal.setActiveAccount(accounts[0]);
+        await loadData();
+      } else {
+        setStatus("Not signed in");
+        $("signIn").style.display = "inline-block";
+      }
+    } catch (e) {
+      setStatus("MSAL init failed");
+      showErr(e.message || String(e));
+    }
+  }
+
+  // ── Graph fetch ────────────────────────────────────────────────────────
+  async function fetchPainpoints(token) {
+    const auth = { Authorization: `Bearer ${token}` };
+
+    // 1. Resolve site
+    const siteRes = await fetch(`${GRAPH}/sites/${SP_HOST}:${SP_PATH}`, { headers: auth });
+    if (!siteRes.ok) throw new Error(`Site lookup failed: ${siteRes.status} ${await siteRes.text()}`);
+    const site = await siteRes.json();
+
+    // 2. Resolve list
+    const listRes = await fetch(`${GRAPH}/sites/${site.id}/lists?$filter=displayName eq '${SP_LIST}'`, { headers: auth });
+    if (!listRes.ok) throw new Error(`List lookup failed: ${listRes.status} ${await listRes.text()}`);
+    const lists = await listRes.json();
+    if (!lists.value || !lists.value.length) throw new Error(`List "${SP_LIST}" not found`);
+    const list = lists.value[0];
+
+    // 3. Page through items
+    const items = [];
+    let url = `${GRAPH}/sites/${site.id}/lists/${list.id}/items?expand=fields&$top=100`;
+    let rawSample;
+    while (url) {
+      const r = await fetch(url, { headers: auth });
+      if (!r.ok) throw new Error(`Items fetch failed: ${r.status} ${await r.text()}`);
+      const j = await r.json();
+      if (!rawSample && j.value && j.value[0]) rawSample = j.value[0];
+      for (const item of (j.value || [])) {
+        const f = item.fields || {};
+        items.push({
+          id: String(f.Title ?? item.id),
+          title: String(f.Title ?? ""),
+          description: String(f.Description ?? ""),
+          severity: f.Severity == null ? null : Number(f.Severity),
+          cohort: String(f.Cohort ?? ""),
+          l3_id: String(f.KenL3ID ?? ""),
+          item_type: String(f.ItemType ?? ""),
+        });
+      }
+      url = j["@odata.nextLink"] || null;
+    }
+    return { items, rawSample };
+  }
+
+  // ── Sign-in flow ───────────────────────────────────────────────────────
+  async function signIn() {
+    clearErr();
+    setStatus("Redirecting to Microsoft...");
+    try {
+      const result = await msal.loginPopup(loginRequest);
+      if (result.account) msal.setActiveAccount(result.account);
+      await loadData();
+    } catch (e) {
+      setStatus("Sign-in failed");
+      showErr(e.message || String(e));
+    }
+  }
+
+  async function signOut() {
+    const account = msal.getActiveAccount();
+    if (!account) return;
+    await msal.logoutPopup({ account });
+    window.location.reload();
+  }
+
+  async function loadData() {
+    const account = msal.getActiveAccount();
+    if (!account) return;
+    setStatus(`Signed in as ${account.username} - fetching list...`);
+    $("signIn").style.display = "none";
+    $("signOut").style.display = "inline-block";
+    clearErr();
+    try {
+      let result;
+      try {
+        result = await msal.acquireTokenSilent({ ...graphRequest, account });
+      } catch (e) {
+        if (e instanceof msal_browser.InteractionRequiredAuthError) {
+          result = await msal.acquireTokenPopup(graphRequest);
+        } else {
+          throw e;
+        }
+      }
+      const { items, rawSample } = await fetchPainpoints(result.accessToken);
+      render(account, items, rawSample);
+    } catch (e) {
+      setStatus("Fetch failed");
+      showErr(e.message || String(e));
+    }
+  }
+
+  function render(account, items, rawSample) {
+    setStatus(`Signed in as ${account.username}`);
+    $("results").style.display = "block";
+    $("totalCount").textContent = items.length;
+    $("highCount").textContent = items.filter(p => (p.severity ?? 0) >= 4).length;
+    $("cohortCount").textContent = new Set(items.map(p => p.cohort).filter(Boolean)).size;
+
+    const ul = $("items");
+    ul.innerHTML = "";
+    for (const p of items.slice(0, 25)) {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <div class="sev" style="background:${sevColour(p.severity || 0)}">${p.severity ?? "-"}</div>
+        <div style="flex:1;min-width:0">
+          <div class="pp-title">${escapeHtml(p.title || "(untitled)")}</div>
+          <div class="pp-meta">
+            <span class="pp-id">${escapeHtml(p.id)}</span>
+            ${p.cohort ? `<span> &middot; ${escapeHtml(p.cohort)}</span>` : ""}
+            ${p.l3_id ? `<span> &middot; L3 ${escapeHtml(p.l3_id)}</span>` : ""}
+          </div>
+        </div>
+      `;
+      ul.appendChild(li);
+    }
+    if (rawSample) $("raw").textContent = JSON.stringify(rawSample, null, 2);
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // ── wire buttons + boot ───────────────────────────────────────────────
+  $("signIn").addEventListener("click", signIn);
+  $("signOut").addEventListener("click", signOut);
+  init();
+</script>
+</body>
+</html>
