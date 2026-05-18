@@ -185,17 +185,17 @@
   const loginRequest = { scopes: ["Sites.Read.All"] };
   const graphRequest = { scopes: ["https://graph.microsoft.com/Sites.Read.All"] };
 
-  let msal;
+  let pca;
 
   async function init() {
     try {
-      msal = new msal_browser.PublicClientApplication(msalConfig);
-      await msal.initialize();
+      msal = new msal.PublicClientApplication(msalConfig);
+      await pca.initialize();
       // Handle redirect return (if any)
-      try { await msal.handleRedirectPromise(); } catch (e) { /* benign */ }
-      const accounts = msal.getAllAccounts();
+      try { await pca.handleRedirectPromise(); } catch (e) { /* benign */ }
+      const accounts = pca.getAllAccounts();
       if (accounts.length) {
-        msal.setActiveAccount(accounts[0]);
+        pca.setActiveAccount(accounts[0]);
         await loadData();
       } else {
         setStatus("Not signed in");
@@ -254,8 +254,8 @@
     clearErr();
     setStatus("Redirecting to Microsoft...");
     try {
-      const result = await msal.loginPopup(loginRequest);
-      if (result.account) msal.setActiveAccount(result.account);
+      const result = await pca.loginPopup(loginRequest);
+      if (result.account) pca.setActiveAccount(result.account);
       await loadData();
     } catch (e) {
       setStatus("Sign-in failed");
@@ -264,14 +264,14 @@
   }
 
   async function signOut() {
-    const account = msal.getActiveAccount();
+    const account = pca.getActiveAccount();
     if (!account) return;
-    await msal.logoutPopup({ account });
+    await pca.logoutPopup({ account });
     window.location.reload();
   }
 
   async function loadData() {
-    const account = msal.getActiveAccount();
+    const account = pca.getActiveAccount();
     if (!account) return;
     setStatus(`Signed in as ${account.username} - fetching list...`);
     $("signIn").style.display = "none";
@@ -280,10 +280,10 @@
     try {
       let result;
       try {
-        result = await msal.acquireTokenSilent({ ...graphRequest, account });
+        result = await pca.acquireTokenSilent({ ...graphRequest, account });
       } catch (e) {
-        if (e instanceof msal_browser.InteractionRequiredAuthError) {
-          result = await msal.acquireTokenPopup(graphRequest);
+        if (e instanceof msal.InteractionRequiredAuthError) {
+          result = await pca.acquireTokenPopup(graphRequest);
         } else {
           throw e;
         }
